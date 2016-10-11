@@ -1,6 +1,8 @@
 # HelloIOIOUart
 This is an extension of HelloIOIOServiceIPC. I added 4 ConcurrentLinkedQueue buffers connected to two activities and two UARTs on the IOIO. The buffers are public static members of the application so all activties and the IOIO service can access and modify them.
 
+(See image below)
+
 outQueue1 takes the text entered into the EditText in MainActivity and places it in the buffer. If and when the IOIO comes online, it takes the data from outQueue1 and sends it out on Uart 1 TX (Pin 10) of the IOIO.
 
 inQueue1 gets data from Uart 1 RX (Pin 11) of the IOIO. The data is placed there by the IOIO Service, which also sends a broadcast Intent to notify all receivers that there is data in inQueue1. When MainActivity resumes, it looks for data in inQueue1 and if there is any, it moves it to the TextView. If MainActivity is running, it listens for the Intent indicating there is data in inQueue1, and then moves it to the TextView.
