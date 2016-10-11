@@ -1,4 +1,4 @@
-# HelloIOIOUART
+# HelloIOIOUart
 This is an extension of HelloIOIOServiceIPC. I added 4 ConcurrentLinkedQueue buffers connected to two activities and two UARTs on the IOIO. The buffers are public static members of the application so all activties and the IOIO service can access and modify them.
 
 outQueue1 takes the text entered into the EditText in MainActivity and places it in the buffer. If and when the IOIO comes online, it takes the data from outQueue1 and sends it out on Uart 1 TX (Pin 10) of the IOIO.
