@@ -13,7 +13,7 @@ The LED Off/Blink toggle button allows you to blink the LED on the IOIO for a so
 
 This app can be used in several ways. You can connect Uart 1 TX to Uart 1 RX (Pin 10 to 11) [use a 220 - 1K ohm resistor to be safe] for a local loopback. Data sent from MainActivity will be displayed in MainActivity. Similarly , pins 12 & 13 can be conneted together to make a local loopback on SeecondActivity.
 
-Another option is to connect pins 10 & 13 and pins 11 & 12. This will send data from Main Acitivity and vice versa.
+Another option is to connect pins 10 & 13 and pins 11 & 12. This will send data from MainAcitivity to SecondActivity and vice versa.
 
 Once you are satisfied that your app and IOIO are working, you can use this app to "chat" with other UART based serial devices by connecting the IOIO TX and RX to your devices RX & TX. Note the RX/TX cross-over connection. Also note that pins 10 - 13 have 3.3V signals and are 5V tolerant. You can use pull-up resistors to 5V if you are connecting to a TTL UART device. Be very careful that you do not connect to and signals that are not in the 0V - 5V range, such as RS232 - you'll fry your IOIO.
 
