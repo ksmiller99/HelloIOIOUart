@@ -20,4 +20,5 @@ Once you are satisfied that your app and IOIO are working, you can use this app 
 Please let me know of errors, omissions, or improvements, and if you found this helpful.
 
 <img src="./images/HelloIOIOUart.png">
+<img src="./images/HelloIOIOUartPhoneShot.png">
 
