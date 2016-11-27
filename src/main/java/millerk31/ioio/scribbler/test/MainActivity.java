@@ -1,4 +1,4 @@
-package ioio.examples.hello_service_ipc;
+package millerk31.ioio.scribbler.test;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -16,26 +16,41 @@ import android.os.RemoteException;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
+import android.widget.RadioGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
-import static ioio.examples.hello_service_ipc.MyApp.*;
+import millerk31.myro.Scribbler;
 
+//import static millerk31.ioio.scribbler.test.MyApp.s2InQueue;
+//import static millerk31.ioio.scribbler.test.MyApp.s2OutQueue;
+import static millerk31.ioio.scribbler.test.MyApp.tvRxDataSave1;
 
 public class MainActivity extends Activity {
 
+    Scribbler scribbler = Scribbler.getInstance();
+
     private ToggleButton toggleButton_;
     private TextView tvRxData;
-    private EditText etTxData;
+    private Button btnGetInfo;
+    private Button btnMotorsOn;
+    private Button btnMotorsOff;
+    private Button btn05;
+    private Button btn00;
+    private Button btn0F;
+    private RadioGroup rgRepeat;
 
-    boolean isBound = false;
+    boolean isIoioBound = false;
     Messenger messenger = null;
 
     //create IntentFilters for receiving broadcast messages
     IntentFilter connectFilter = new IntentFilter("IOIO_CONNECTED");
     IntentFilter disconnectFilter = new IntentFilter("IOIO_DISCONNECTED");
-    IntentFilter inQueue1Filter = new IntentFilter("INPUT_QUEUE_1");
+    IntentFilter scribblerConnectFilter = new IntentFilter(IOIOScribblerService.SCRIBBLER_CONNECTED_INTENT_MSG);
+    //IntentFilter inQueue1Filter = new IntentFilter("INPUT_QUEUE_1");
+
+    private boolean repeatFlag = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,34 +58,50 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         //start the IOIO Service
-        startService(new Intent(this, HelloIOIOServiceUart.class));
+        startService(new Intent(this, IOIOScribblerService.class));
 
         toggleButton_ = (ToggleButton) findViewById(R.id.ToggleButton);
         tvRxData = (TextView) findViewById(R.id.tvRxData1);
-        etTxData = (EditText) findViewById(R.id.etTxData1);
+        btnGetInfo = (Button) findViewById(R.id.btnGetInfo);
+        btnMotorsOn = (Button) findViewById(R.id.btnMotorsOn);
+        btnMotorsOff = (Button) findViewById(R.id.btnMotorsOff);
+        btn05 = (Button) findViewById(R.id.btn05);
+        btn00 = (Button) findViewById(R.id.btn00);
+        btn0F = (Button) findViewById(R.id.btn0F);
+        rgRepeat = (RadioGroup)findViewById(R.id.rgRepeat);
+        rgRepeat.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                if(checkedId == R.id.rbRepeatOn){
+                    repeatFlag = true;
+                } else
+                if(checkedId == R.id.rbRepeatOff){
+                    repeatFlag = false;
+                }
+            }
+        });
 
         //assume IOIO is disconnected at start
         enableUi(false);
 
         //bind to  the IOIO service
-        Intent intent = new Intent(this, HelloIOIOServiceUart.class);
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-        Log.d("KSM", "Main.onCreate Finished");
+        Intent intent = new Intent(this, IOIOScribblerService.class);
+        bindService(intent, serviceIoioConnection, Context.BIND_AUTO_CREATE);
     }
 
-    //Outbound messages go through ServiceConnection
-    private ServiceConnection serviceConnection = new ServiceConnection() {
+    //Outbound IOIO messages go through ServiceConnection
+    private ServiceConnection serviceIoioConnection = new ServiceConnection() {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.d("KSM", "Main.onServiceConnected");
-            isBound = true;
+            isIoioBound = true;
 
             // Create the Messenger object
             messenger = new Messenger(service);
 
             //update UI elements to match IOIO state
-            Message msg = Message.obtain(null, HelloIOIOServiceUart.IOIO_STATUS_REQUEST);
+            Message msg = Message.obtain(null, IOIOScribblerService.IOIO_STATUS_REQUEST);
             msg.replyTo = new Messenger(new IncomingHandler());
             try {
                 messenger.send(msg);
@@ -78,7 +109,7 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
 
-            msg = Message.obtain(null, HelloIOIOServiceUart.LED_STATUS_REQUEST);
+            msg = Message.obtain(null, IOIOScribblerService.LED_STATUS_REQUEST);
             msg.replyTo = new Messenger(new IncomingHandler());
             try {
                 messenger.send(msg);
@@ -93,7 +124,7 @@ public class MainActivity extends Activity {
 
             // unbind or process might have crashes
             messenger = null;
-            isBound = false;
+            isIoioBound = false;
         }
     };
 
@@ -102,11 +133,12 @@ public class MainActivity extends Activity {
         //setup broadcast receivers
         registerReceiver(myReceiver, connectFilter);
         registerReceiver(myReceiver, disconnectFilter);
-        registerReceiver(myReceiver, inQueue1Filter);
+        registerReceiver(myReceiver, scribblerConnectFilter);
+        //registerReceiver(myReceiver, inQueue1Filter);
 
         //update UI elements to match IOIO state
-        if (isBound) {
-            Message msg = Message.obtain(null, HelloIOIOServiceUart.IOIO_STATUS_REQUEST);
+        if (isIoioBound) {
+            Message msg = Message.obtain(null, IOIOScribblerService.IOIO_STATUS_REQUEST);
             msg.replyTo = new Messenger(new IncomingHandler());
             try {
                 messenger.send(msg);
@@ -114,7 +146,7 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
 
-            msg = Message.obtain(null, HelloIOIOServiceUart.LED_STATUS_REQUEST);
+            msg = Message.obtain(null, IOIOScribblerService.LED_STATUS_REQUEST);
             msg.replyTo = new Messenger(new IncomingHandler());
             try {
                 messenger.send(msg);
@@ -123,16 +155,8 @@ public class MainActivity extends Activity {
             }
         }
 
+        //restore data to view that was erased when view paused
         tvRxData.setText(tvRxDataSave1);
-
-        //get any input that came in while activity was not running
-        while(inQueue1.size()>0){
-            try {
-                tvRxData.setText(tvRxData.getText() + new String(inQueue1.poll(), "UTF-8"));
-            }catch (Exception e){
-                e.printStackTrace();
-            }
-        }
 
         Log.d("KSM", "Main.onResume completed");
         super.onResume();
@@ -141,9 +165,9 @@ public class MainActivity extends Activity {
     @Override
     //make sure service is disconnected from activity
     protected void onDestroy() {
-        unbindService(serviceConnection);
+        unbindService(serviceIoioConnection);
         messenger = null;
-        isBound = false;
+        isIoioBound = false;
 
         super.onDestroy();
     }
@@ -174,27 +198,27 @@ public class MainActivity extends Activity {
         public void handleMessage(Message msg) {
 
             switch (msg.what) {
-                case HelloIOIOServiceUart.LED_BLINK_REPLY:
+                case IOIOScribblerService.LED_BLINK_REPLY:
                     Log.d("KSM", "LED_BLINK_REPLY message handled");
                     toggleButton_.setChecked(true);
                     break;
 
-                case HelloIOIOServiceUart.LED_OFF_REPLY:
+                case IOIOScribblerService.LED_OFF_REPLY:
                     Log.d("KSM", "LED_OFF_REPLY message handled");
                     toggleButton_.setChecked(false);
                     break;
 
-                case HelloIOIOServiceUart.LED_STATUS_REPLY:
+                case IOIOScribblerService.LED_STATUS_REPLY:
                     toggleButton_.setChecked(msg.arg1 == 1);
                     Log.d("KSM", "LED_STATUS_REPLY: " + msg.arg1 + " message handled");
                     break;
 
-                case HelloIOIOServiceUart.IOIO_STATUS_REPLY:
+                case IOIOScribblerService.IOIO_STATUS_REPLY:
                     enableUi(msg.arg1 == 1);
                     Log.d("KSM", "IOIO_STATUS_REPLY: " + msg.arg1 + " message handled");
                     break;
 
-                case HelloIOIOServiceUart.ERROR_REPLY:
+                case IOIOScribblerService.ERROR_REPLY:
                     Log.d("KSM", "ERROR_REPLY to message type: " + msg.arg1 + " message handled");
                     break;
 
@@ -212,9 +236,9 @@ public class MainActivity extends Activity {
 
         //set message type based on toggle status after clicking
         if (tgl.isChecked())
-            msgType = HelloIOIOServiceUart.LED_BLINK_REQUEST;
+            msgType = IOIOScribblerService.LED_BLINK_REQUEST;
         else
-            msgType = HelloIOIOServiceUart.LED_OFF_REQUEST;
+            msgType = IOIOScribblerService.LED_OFF_REQUEST;
 
         //revert button state so that IOIO can control it via the reply message in case
         //there is some unknown reason in the service that would prevent the state change
@@ -251,14 +275,8 @@ public class MainActivity extends Activity {
                 enableUi(true);
                 Log.d("KSM", "Broadcast CONNECTED intent received");
 
-            } else if(intent.getAction().equals("INPUT_QUEUE_1")){
-                while(inQueue1.size()>0){
-                    try {
-                        tvRxData.setText(tvRxData.getText() + new String(inQueue1.poll(), "UTF-8"));
-                    }catch (Exception e){
-                        e.printStackTrace();
-                    }
-                }
+            } else if(intent.getAction().equals(IOIOScribblerService.SCRIBBLER_CONNECTED_INTENT_MSG)){
+                Toast.makeText(getApplicationContext(),"S2 Connected",Toast.LENGTH_SHORT).show();
             }
         }
     };
@@ -272,16 +290,76 @@ public class MainActivity extends Activity {
         });
     }
 
-    public void btnSendOnClick(View v){
+    public void btnGetInfoOnClick(View v){
+        String info;
+        if (scribbler.scribblerConnected()) {
+            info = scribbler.getInfo();
+        }else{
+            info = "Error: Scribbler not connected";
+        }
 
-        String s = etTxData.getText().toString();
-        byte b[] = s.getBytes();
-        outQueue1.add(b);
+        tvRxData.setText(tvRxData.getText()+"\n"+info);
 
-        etTxData.setText("");
+        if(repeatFlag){
+            new Handler().postDelayed(new Runnable(){
+                @Override
+                public void run(){
+                    btnGetInfoOnClick(btnGetInfo);
+                }
+            },500);
+        }
     }
 
+    public void btnMotorsOnOnClick(View v){
+        if(scribbler.scribblerConnected()){
+            scribbler.motors(0.3,0.3);
+        }else{
+            tvRxData.setText(tvRxData.getText()+"\nError: Scribbler not connected");
+        }
+    }
+    public void btnMotorsOffOnClick(View v){
+        if(scribbler.scribblerConnected()){
+            scribbler.motors(0,0);
+        }else{
+            tvRxData.setText(tvRxData.getText()+"\nError: Scribbler not connected");
+        }
+    }
 
-}
+    public void btn05OnClick(View v){
+
+    }
+
+    public void btnCloseOnClick(View v){
+        //IOIOScribblerService.s2Handler.closeScribbler();
+    }
+
+    public void btn0FOnClick(View v){
+     }
+
+    public void btnClearOnClick(View v){
+        tvRxData.setText("");
+    }
+
+    final protected static char[] decimalArray = "0123456789".toCharArray();
+    public static String bytesToDecimal(byte[] bytes) {
+        char[] decimalChars = new char[bytes.length * 4];
+        for ( int j = 0; j < bytes.length; j++ ) {
+            int v = bytes[j] & 0xFF;
+            decimalChars[j * 4] = decimalArray[v / 100];
+            decimalChars[j * 4 + 1] = decimalArray[(v / 10) % 10];
+            decimalChars[j * 4 + 2] = decimalArray[v % 10];
+            decimalChars[j * 4 + 3] = ' ';
+        }
+        return new String(decimalChars);
+    }
+
+    public void btnSongOnClick(View v){
+        if (scribbler.scribblerConnected()) {
+            scribbler.playSong("A 1; F# 1; E 1; F# 1; A 1;", .05);
+        }else{
+            tvRxData.setText(tvRxData.getText()+"\nError: Scribbler not connected");
+        }
+    }
+ }
 
 
